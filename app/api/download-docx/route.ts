@@ -14,7 +14,6 @@ import {
   NumberFormat,
   WidthType,
   BorderStyle,
-  HeadingLevel,
   VerticalAlign,
 } from "docx";
 import { parseDocHtml, type TableData } from "@/lib/htmlUtils";
@@ -148,6 +147,32 @@ function buildSimpleTable(tableData: TableData): Table {
   });
 }
 
+// ─── Markdown inline parser → TextRun[] ──────────────────────────────────────
+
+function markdownRuns(text: string): TextRun[] {
+  const decoded = decodeEntities(text);
+  const runs: TextRun[] = [];
+  // Match ***bold+italic***, **bold**, *italic*, or plain text
+  const re = /\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(decoded)) !== null) {
+    if (m.index > last) runs.push(run(decoded.slice(last, m.index)));
+    if (m[1]) runs.push(run(m[1], { bold: true, italic: true }));
+    else if (m[2]) runs.push(run(m[2], { bold: true }));
+    else if (m[3]) runs.push(run(m[3], { italic: true }));
+    last = m.index + m[0].length;
+  }
+  if (last < decoded.length) runs.push(run(decoded.slice(last)));
+  return runs.length ? runs : [run("")];
+}
+
+// Strip leading/trailing ** or *** from a line to get the raw heading text
+function stripMarkdownBold(line: string): string | null {
+  const m = line.match(/^\*{2,3}(.+?)\*{2,3}$/);
+  return m ? m[1].trim() : null;
+}
+
 // ─── Build docx children from processed text + original table data ────────────
 
 function buildChildren(
@@ -165,22 +190,51 @@ function buildChildren(
       // Prose segment
       const lines = segments[i].split("\n").map((l) => l.trim()).filter(Boolean);
       for (const line of lines) {
-        // Detect heading-like lines (short, no period at end)
-        const isHeading = isApa && line.length < 80 && !line.endsWith(".") && !line.endsWith(",");
-        if (isHeading && /^[A-Z]/.test(line) && line.split(" ").length <= 8) {
+        // 1. Full-line markdown bold → APA Level 1 heading (centered, bold)
+        const headingText = stripMarkdownBold(line);
+        if (headingText) {
           children.push(new Paragraph({
-            children: [run(line, { bold: true })],
+            children: [run(headingText, { bold: true })],
             alignment: AlignmentType.CENTER,
             spacing: { line: LINE_SPACING, before: 240, after: 0 },
           }));
-        } else {
+          continue;
+        }
+
+        // 2. Plain-text heading heuristic (for non-markdown output)
+        const looksLikeHeading = isApa
+          && line.length < 80
+          && !line.endsWith(".")
+          && !line.endsWith(",")
+          && /^[A-Z]/.test(line)
+          && line.split(" ").length <= 8;
+        if (looksLikeHeading) {
           children.push(new Paragraph({
-            children: [run(line)],
-            indent: isApa ? { firstLine: FIRST_LINE_INDENT } : undefined,
-            alignment: AlignmentType.LEFT,
+            children: markdownRuns(line),
+            alignment: AlignmentType.CENTER,
+            spacing: { line: LINE_SPACING, before: 240, after: 0 },
+          }));
+          continue;
+        }
+
+        // 3. Markdown bullet point → indented paragraph with bullet dash
+        const bulletMatch = line.match(/^[-•]\s+(.+)$/);
+        if (bulletMatch) {
+          children.push(new Paragraph({
+            children: markdownRuns(bulletMatch[1]),
+            indent: { left: convertInchesToTwip(0.5) },
             spacing: { line: LINE_SPACING, before: 0, after: 0 },
           }));
+          continue;
         }
+
+        // 4. Normal paragraph — parse inline markdown
+        children.push(new Paragraph({
+          children: markdownRuns(line),
+          indent: isApa ? { firstLine: FIRST_LINE_INDENT } : undefined,
+          alignment: AlignmentType.LEFT,
+          spacing: { line: LINE_SPACING, before: 0, after: 0 },
+        }));
       }
     } else {
       // Table placeholder — find the matching table
@@ -207,31 +261,6 @@ function buildChildrenFromHtml(html: string, isApa: boolean): (Paragraph | Table
   return buildChildren(parsed.textWithPlaceholders, parsed.tables, isApa);
 }
 
-// ─── APA title page ───────────────────────────────────────────────────────────
-
-function apaTitlePage(docTitle: string): Paragraph[] {
-  const blank = () => new Paragraph({ text: "", spacing: { line: LINE_SPACING } });
-  return [
-    blank(), blank(), blank(), blank(),
-    new Paragraph({
-      children: [run(docTitle, { bold: true })],
-      alignment: AlignmentType.CENTER,
-      spacing: { line: LINE_SPACING },
-    }),
-    blank(),
-    ...(["[Author Name]", "[Institution Name]", "[Course Code and Name]", "[Instructor Name]",
-      new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
-    ].map((txt) =>
-      new Paragraph({
-        children: [run(typeof txt === "string" ? txt : String(txt))],
-        alignment: AlignmentType.CENTER,
-        spacing: { line: LINE_SPACING },
-      })
-    )),
-    new Paragraph({ pageBreakBefore: true, text: "" }),
-  ];
-}
-
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -243,7 +272,6 @@ export async function POST(req: NextRequest) {
     }
 
     const isApa = mode === "apa";
-    const docTitle = title || (isApa ? "APA 7 Compliant Document" : "Humanized Document");
 
     let bodyChildren: (Paragraph | Table)[];
 
@@ -258,7 +286,7 @@ export async function POST(req: NextRequest) {
       bodyChildren = buildChildren(text, [], isApa);
     }
 
-    const titlePageChildren = isApa ? apaTitlePage(docTitle) : [];
+    const titlePageChildren: Paragraph[] = [];
 
     const doc = new Document({
       styles: {
