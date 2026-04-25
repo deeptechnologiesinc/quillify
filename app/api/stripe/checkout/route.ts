@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
     mode: "subscription",
     payment_method_types: ["card"],
     currency: "cad",
+    allow_promotion_codes: true,
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${appUrl}/dashboard?upgraded=1`,
     cancel_url: `${appUrl}/pricing`,
