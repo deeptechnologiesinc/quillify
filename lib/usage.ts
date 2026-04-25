@@ -1,4 +1,4 @@
-﻿import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/admin";
 
 export const PLAN_LIMITS: Record<string, number> = {
@@ -12,10 +12,12 @@ function currentMonth(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export async function getUserPlan(userId: string): Promise<string> {
-  if (isAdmin(userId)) return "scholar";
+export async function getUserPlan(userId: string): Promise<{ plan: string; bonusWords: number }> {
+  if (isAdmin(userId)) return { plan: "scholar", bonusWords: 0 };
   const sub = await prisma.subscription.findUnique({ where: { userId } });
-  return sub?.status === "active" ? (sub.plan ?? "free") : "free";
+  const plan = sub?.status === "active" ? (sub.plan ?? "free") : "free";
+  const bonusWords = sub?.bonusWords ?? 0;
+  return { plan, bonusWords };
 }
 
 export async function getMonthlyUsage(userId: string): Promise<number> {
@@ -29,13 +31,14 @@ export async function checkAndDeductWords(
   userId: string,
   wordCount: number
 ): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
-  if (isAdmin(userId)) return { allowed: true, used: 0, limit: Infinity, plan: "scholar" };
-  const plan = await getUserPlan(userId);
-  const limit = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
+  if (isAdmin(userId)) return { allowed: true, used: 0, limit: -1, plan: "scholar" };
+  const { plan, bonusWords } = await getUserPlan(userId);
+  const baseLimit = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
+  const limit = baseLimit === Infinity ? Infinity : baseLimit + bonusWords;
   const used = await getMonthlyUsage(userId);
 
   if (limit !== Infinity && used + wordCount > limit) {
-    return { allowed: false, used, limit, plan };
+    return { allowed: false, used, limit: limit === Infinity ? -1 : limit, plan };
   }
 
   if (wordCount > 0) {
@@ -46,7 +49,7 @@ export async function checkAndDeductWords(
     });
   }
 
-  return { allowed: true, used: used + wordCount, limit, plan };
+  return { allowed: true, used: used + wordCount, limit: limit === Infinity ? -1 : limit, plan };
 }
 
 export async function saveDocument(
@@ -61,7 +64,7 @@ export async function saveDocument(
     });
     return;
   }
-  const plan = await getUserPlan(userId);
+  const { plan } = await getUserPlan(userId);
   const maxDocs = plan === "free" ? 3 : 999999;
 
   if (plan === "free") {

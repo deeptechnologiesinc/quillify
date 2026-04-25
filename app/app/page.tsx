@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Feather,
   Sparkles,
@@ -72,6 +72,17 @@ export default function Home() {
   const [humanizeMode, setHumanizeMode] = useState<"quick" | "balanced" | "deep">("balanced");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const outputRef = useRef<HTMLDivElement>(null);
+
+  // Claim referral bonus if user arrived via a referral link
+  useEffect(() => {
+    const ref = localStorage.getItem("qfy_ref");
+    if (!ref) return;
+    fetch("/api/referral/claim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: ref }),
+    }).finally(() => localStorage.removeItem("qfy_ref"));
+  }, []);
 
   const charCount = inputText.length;
   const wordCount = inputText.trim() ? inputText.trim().split(/\s+/).length : 0;

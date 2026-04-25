@@ -39,6 +39,18 @@ model Subscription {
   plan             String    @default("free")
   status           String    @default("active")
   currentPeriodEnd DateTime?
+  bonusWords       Int       @default(0)
+  referralCode     String?   @unique
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+}
+
+model Referral {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  referrerId String
+  refereeId  String?  @unique
+  createdAt  DateTime @default(now())
+
+  @@index([referrerId])
 }

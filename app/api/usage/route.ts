@@ -1,4 +1,4 @@
-﻿import { auth } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getUserPlan, getMonthlyUsage, PLAN_LIMITS } from "@/lib/usage";
 import { prisma } from "@/lib/prisma";
@@ -7,7 +7,7 @@ export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [plan, used, docs] = await Promise.all([
+  const [{ plan, bonusWords }, used, docs] = await Promise.all([
     getUserPlan(userId),
     getMonthlyUsage(userId),
     prisma.document.findMany({
@@ -18,7 +18,7 @@ export async function GET() {
     }),
   ]);
 
-  const raw = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
-  const limit = raw === Infinity ? -1 : raw;
-  return NextResponse.json({ plan, used, limit, docs });
+  const baseLimit = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
+  const raw = baseLimit === Infinity ? -1 : baseLimit + bonusWords;
+  return NextResponse.json({ plan, used, limit: raw, bonusWords, docs });
 }

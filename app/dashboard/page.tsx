@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { QuillifyLogo } from "@/components/QuillifyLogo";
 import { UserButton } from "@clerk/nextjs";
-import { FileText, Zap, ArrowRight, Clock, ChevronRight } from "lucide-react";
+import { FileText, Zap, ArrowRight, Clock, ChevronRight, Copy, Check, Gift } from "lucide-react";
 
 interface Doc { id: string; title: string; wordCount: number; createdAt: string; }
-interface UsageData { plan: string; used: number; limit: number; docs: Doc[]; }
+interface UsageData { plan: string; used: number; limit: number; bonusWords: number; docs: Doc[]; }
+interface ReferralData { code: string; bonusWords: number; referralCount: number; }
 
 function UsageMeter({ used, limit, plan }: { used: number; limit: number; plan: string }) {
   const pct = limit === -1 ? 0 : Math.min(100, Math.round((used / limit) * 100));
@@ -41,6 +42,62 @@ function UsageMeter({ used, limit, plan }: { used: number; limit: number; plan: 
           </Link>
         </div>
       )}
+    </div>
+  );
+}
+
+function ReferralWidget() {
+  const [ref, setRef] = useState<ReferralData | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/referral").then(r => r.json()).then(setRef).catch(() => {});
+  }, []);
+
+  const link = ref ? `${typeof window !== "undefined" ? window.location.origin : ""}/sign-up?ref=${ref.code}` : "";
+
+  const handleCopy = async () => {
+    if (!link) return;
+    await navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!ref) return null;
+  return (
+    <div className="bg-gradient-to-br from-indigo-50 to-violet-50 rounded-2xl border border-indigo-100 p-6">
+      <div className="flex items-start gap-3 mb-4">
+        <div className="p-2 bg-indigo-100 rounded-xl">
+          <Gift className="w-5 h-5 text-indigo-600" />
+        </div>
+        <div>
+          <p className="text-sm font-bold text-indigo-950">Refer friends, earn words</p>
+          <p className="text-xs text-gray-500 mt-0.5">You get <strong>500 bonus words</strong> for every friend who signs up with your link.</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 bg-white border border-indigo-100 rounded-xl px-3 py-2.5 mb-4">
+        <code className="text-xs text-indigo-700 flex-1 truncate font-mono">{link}</code>
+        <button
+          onClick={handleCopy}
+          className="flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer transition-colors"
+        >
+          {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+
+      <div className="flex items-center gap-6">
+        <div>
+          <p className="text-xl font-bold text-indigo-950" style={{ fontFamily: "'EB Garamond', Georgia, serif" }}>{ref.referralCount}</p>
+          <p className="text-xs text-gray-400">Friends referred</p>
+        </div>
+        <div className="w-px h-8 bg-indigo-100" />
+        <div>
+          <p className="text-xl font-bold text-indigo-950" style={{ fontFamily: "'EB Garamond', Georgia, serif" }}>{ref.bonusWords.toLocaleString()}</p>
+          <p className="text-xs text-gray-400">Bonus words earned</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -138,6 +195,9 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+
+            {/* Referral program */}
+            <ReferralWidget />
 
             {data.plan === "free" && (
               <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-2xl p-6 flex items-center justify-between gap-4">

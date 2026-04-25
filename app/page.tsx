@@ -48,6 +48,7 @@ function Navbar() {
           <Link href="#features" className="text-sm text-gray-500 hover:text-indigo-700 transition-colors cursor-pointer">Features</Link>
           <Link href="#how-it-works" className="text-sm text-gray-500 hover:text-indigo-700 transition-colors cursor-pointer">How it works</Link>
           <Link href="/pricing" className="text-sm text-gray-500 hover:text-indigo-700 transition-colors cursor-pointer">Pricing</Link>
+          <Link href="/blog" className="text-sm text-gray-500 hover:text-indigo-700 transition-colors cursor-pointer">Blog</Link>
         </div>
         <div className="hidden md:flex items-center gap-3">
           {isSignedIn ? (
@@ -71,6 +72,7 @@ function Navbar() {
           <Link href="#features" className="block text-sm text-gray-600 py-2" onClick={() => setOpen(false)}>Features</Link>
           <Link href="#how-it-works" className="block text-sm text-gray-600 py-2" onClick={() => setOpen(false)}>How it works</Link>
           <Link href="/pricing" className="block text-sm text-gray-600 py-2" onClick={() => setOpen(false)}>Pricing</Link>
+          <Link href="/blog" className="block text-sm text-gray-600 py-2" onClick={() => setOpen(false)}>Blog</Link>
           <div className="pt-2 flex flex-col gap-2">
             {isSignedIn ? (
               <Link href="/app" className="block text-center text-sm font-semibold bg-indigo-600 text-white rounded-xl py-2.5">Open App</Link>
@@ -252,6 +254,126 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Before / After ───────────────────────────────────────── */}
+      <section className="py-24 px-4 sm:px-6 bg-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-50/60 rounded-full blur-[100px] pointer-events-none" />
+        <div className="max-w-5xl mx-auto relative">
+          <div className="text-center mb-14 reveal">
+            <span className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 text-indigo-600 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+              <Sparkles className="w-3.5 h-3.5" /> Real transformation
+            </span>
+            <h2 className="text-4xl sm:text-5xl font-bold text-indigo-950 mb-4" style={{ fontFamily: "'EB Garamond', Georgia, serif" }}>
+              See the difference yourself
+            </h2>
+            <p className="text-gray-500 text-lg max-w-xl mx-auto">Same ideas, completely different voice. One click is all it takes.</p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-6 items-start">
+            {/* Before */}
+            <div className="reveal-left rounded-2xl border border-red-100 bg-red-50/40 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-red-100 bg-red-50">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-red-400" />
+                  <span className="text-xs font-bold text-red-600 uppercase tracking-wider">Before · AI-generated</span>
+                </div>
+                <span className="text-xs font-bold text-red-500 bg-red-100 px-2 py-0.5 rounded-full">87% AI</span>
+              </div>
+              <div className="px-5 py-5 text-sm text-gray-700 leading-relaxed space-y-3">
+                <p>The implementation of sustainable practices within corporate frameworks necessitates a multifaceted approach that leverages stakeholder engagement and organizational synergies. It is paramount that businesses utilize comprehensive strategies to delve into the intricate complexities of environmental governance.</p>
+                <p>Furthermore, the aforementioned paradigm shifts require meticulous analysis of the interplay between economic imperatives and ecological considerations, ensuring that all relevant parameters are systematically addressed.</p>
+              </div>
+            </div>
+            {/* After */}
+            <div className="reveal-right rounded-2xl border border-emerald-100 bg-emerald-50/40 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-emerald-100 bg-emerald-50">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">After · Humanized</span>
+                </div>
+                <span className="text-xs font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">11% AI</span>
+              </div>
+              <div className="px-5 py-5 text-sm text-gray-700 leading-relaxed space-y-3">
+                <p>Getting companies to actually embrace sustainability isn&apos;t simple. From what I&apos;ve seen, it really comes down to getting the right people on board and making sure different parts of the business are working toward the same goals — rather than treating it as a box-ticking exercise.</p>
+                <p>There&apos;s also a real tension between short-term financial pressure and doing the right thing environmentally. I think the businesses that handle this well tend to treat environmental concerns as a core part of their strategy, not an afterthought.</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-8 text-center reveal">
+            <Link href="/sign-up" className="btn-shine inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8 py-3.5 rounded-2xl text-sm transition-all shadow-lg shadow-indigo-200/60 cursor-pointer">
+              Try it on your text <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Testimonials ─────────────────────────────────────────── */}
+      <section className="py-24 px-4 sm:px-6 bg-slate-50 relative overflow-hidden">
+        <div className="absolute bottom-0 left-1/3 w-96 h-64 bg-indigo-100/40 rounded-full blur-[80px] pointer-events-none" />
+        <div className="max-w-5xl mx-auto relative">
+          <div className="text-center mb-14 reveal">
+            <div className="inline-flex items-center gap-1 mb-4">
+              {[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />)}
+            </div>
+            <h2 className="text-4xl sm:text-5xl font-bold text-indigo-950 mb-3" style={{ fontFamily: "'EB Garamond', Georgia, serif" }}>
+              Students love Quillify
+            </h2>
+            <p className="text-gray-500 text-lg">Real feedback from real academics.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {([
+              {
+                quote: "I had a 3,000-word essay that was flagged as 91% AI. After Quillify, it came back at 8%. My professor had no idea. Genuinely saved my semester.",
+                name: "Priya M.",
+                role: "MBA student, UBC",
+                stars: 5,
+              },
+              {
+                quote: "The citation finder is the best part. It searches three databases at once and just drops the references in. Used to spend hours on this manually.",
+                name: "James T.",
+                role: "PhD candidate, University of Toronto",
+                stars: 5,
+              },
+              {
+                quote: "The APA export feature alone is worth the subscription. Downloads a properly formatted Word doc with a references list. My formatting anxiety is gone.",
+                name: "Sofia R.",
+                role: "Undergraduate, McGill",
+                stars: 5,
+              },
+              {
+                quote: "It's not just swapping words — the sentences actually flow differently. Reads like something a real, thoughtful student wrote. Impressive.",
+                name: "Daniel K.",
+                role: "Masters student, SFU",
+                stars: 5,
+              },
+              {
+                quote: "I was skeptical at first. But the before/after score went from 79% to 14% on my lit review. I'm a convert.",
+                name: "Aisha L.",
+                role: "Research assistant, Waterloo",
+                stars: 5,
+              },
+              {
+                quote: "The deep humanization mode is another level. Different sentence structures, hedging language, contractions — it's genuinely hard to detect.",
+                name: "Marcus W.",
+                role: "Law student, Dalhousie",
+                stars: 5,
+              },
+            ]).map((t, i) => (
+              <div key={t.name} className={`card-hover reveal bg-white rounded-2xl border border-indigo-50 p-5 flex flex-col delay-${(i % 3) * 100}`}>
+                <div className="flex items-center gap-0.5 mb-3">
+                  {Array.from({ length: t.stars }).map((_, j) => (
+                    <Star key={j} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                  ))}
+                </div>
+                <p className="text-sm text-gray-700 leading-relaxed flex-1 italic">&ldquo;{t.quote}&rdquo;</p>
+                <div className="mt-4 pt-4 border-t border-indigo-50">
+                  <p className="text-sm font-semibold text-indigo-950">{t.name}</p>
+                  <p className="text-xs text-gray-400">{t.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Pricing preview ──────────────────────────────────────── */}
       <section className="py-24 px-4 sm:px-6 bg-slate-50">
         <div className="max-w-5xl mx-auto">
@@ -319,6 +441,7 @@ export default function LandingPage() {
           <QuillifyLogo size={28} />
           <div className="flex items-center gap-6">
             <Link href="/pricing" className="text-xs text-gray-400 hover:text-indigo-600 transition-colors cursor-pointer">Pricing</Link>
+            <Link href="/blog" className="text-xs text-gray-400 hover:text-indigo-600 transition-colors cursor-pointer">Blog</Link>
             <Link href="/sign-in" className="text-xs text-gray-400 hover:text-indigo-600 transition-colors cursor-pointer">Sign in</Link>
             <Link href="/app" className="text-xs text-gray-400 hover:text-indigo-600 transition-colors cursor-pointer">App</Link>
           </div>
