@@ -1,4 +1,5 @@
 ﻿import { prisma } from "@/lib/prisma";
+import { isAdmin } from "@/lib/admin";
 
 export const PLAN_LIMITS: Record<string, number> = {
   free: 2000,
@@ -12,6 +13,7 @@ function currentMonth(): string {
 }
 
 export async function getUserPlan(userId: string): Promise<string> {
+  if (isAdmin(userId)) return "scholar";
   const sub = await prisma.subscription.findUnique({ where: { userId } });
   return sub?.status === "active" ? (sub.plan ?? "free") : "free";
 }
@@ -27,6 +29,7 @@ export async function checkAndDeductWords(
   userId: string,
   wordCount: number
 ): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
+  if (isAdmin(userId)) return { allowed: true, used: 0, limit: Infinity, plan: "scholar" };
   const plan = await getUserPlan(userId);
   const limit = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
   const used = await getMonthlyUsage(userId);
@@ -52,6 +55,12 @@ export async function saveDocument(
   humanized: string | null,
   title?: string
 ): Promise<void> {
+  if (isAdmin(userId)) {
+    await prisma.document.create({
+      data: { userId, original, humanized, wordCount: original.split(/\s+/).length, title: title ?? original.slice(0, 60) },
+    });
+    return;
+  }
   const plan = await getUserPlan(userId);
   const maxDocs = plan === "free" ? 3 : 999999;
 
