@@ -310,27 +310,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen" style={{ background: "#F5F3FF" }}>
-      {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-indigo-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <QuillifyLogo size={34} showText />
-          <div className="hidden sm:flex items-center gap-6 text-sm font-medium text-gray-500">
-            <span className="flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-indigo-400" /> Instant Analysis
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5 text-indigo-400" /> Keeps Your Ideas
-            </span>
-            <span className="flex items-center gap-1.5">
-              <BookOpen className="w-3.5 h-3.5 text-indigo-400" /> APA 7 Ready
-            </span>
-          </div>
-          <span className="text-xs bg-indigo-100 text-indigo-700 font-semibold px-3 py-1 rounded-full">
-            Free to use
-          </span>
-        </div>
-      </nav>
-
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
         {/* Hero */}
         <div className="text-center mb-8 animate-fade-in">
