@@ -32,7 +32,7 @@ function AppNav() {
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <span className="text-xs text-gray-400">{usage.used.toLocaleString()} / {usage.limit === Infinity ? "∞" : usage.limit.toLocaleString()}</span>
+            <span className="text-xs text-gray-400">{usage.used.toLocaleString()} / {(usage.limit === -1 || usage.limit === Infinity) ? "∞" : usage.limit.toLocaleString()}</span>
           </div>
         )}
         {usage?.plan === "free" && (

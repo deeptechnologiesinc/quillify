@@ -18,6 +18,7 @@ export async function GET() {
     }),
   ]);
 
-  const limit = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
+  const raw = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
+  const limit = raw === Infinity ? -1 : raw;
   return NextResponse.json({ plan, used, limit, docs });
 }
