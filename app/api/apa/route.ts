@@ -34,25 +34,27 @@ HEADINGS (if present):
 - Do not number headings in student papers
 
 REFERENCE LIST (if a reference section exists):
-- Title: "References" — bold, centered, on its own line
-- Hanging indent format (first line flush, subsequent lines indented — note this in text, actual indent is in the Word file)
+- Title: output as **References** (bold markdown heading, on its own line)
+- IMPORTANT: do NOT wrap individual reference entries in **bold**. Each entry is plain text with *italic* used only for the work title
+- Hanging indent format (first line flush, subsequent lines indented — actual indent applied by Word file)
 - Alphabetical by first author's last name
-- Journal article format: Author, A. A., & Author, B. B. (Year). Title of article in sentence case. Journal Name in Title Case and Italics, Volume(Issue), page–page. https://doi.org/xxxxx
-- Book format: Author, A. A. (Year). Title of book in sentence case and italics. Publisher. https://doi.org/xxxxx
+- Journal article format: Author, A. A., & Author, B. B. (Year). *Title of article in sentence case.* Journal Name in Title Case and Italics, Volume(Issue), page–page. https://doi.org/xxxxx
+- Book format: Author, A. A. (Year). *Title of book in sentence case.* Publisher. https://doi.org/xxxxx
+- Website/report format: Author, A. A. (Year). *Title of work.* Publisher/Site Name. URL
 - Remove publisher location (APA 7 dropped this)
 - Use "https://doi.org/" not "doi:" or "DOI:"
 - For 21+ authors: list first 19, then ..., then last author
 
 TITLE PAGE:
-- If the text already has a title page (paper title, author name, institution, course, instructor, date), keep it — reformat it to APA 7 student paper style (centered, each element on its own line). After the last title page element, output three dashes (---) on their own line to create the page break before the body
-- If the text has NO title page, add one at the very beginning in this format (each on its own centered line):
-  [Paper Title in Bold]
-  [Author Name]
-  [Institution Name]
-  [Course Code and Name]
-  [Instructor Name]
-  [Due Date]
-  Then output three dashes (---) on their own line to indicate the page break before the body begins
+- If the text already has a title page (paper title, author name, institution, course, instructor, date), keep it. Output ONLY the paper title wrapped in **bold**, and all other elements (author, institution, course, instructor, date) as plain text with NO bold markers. Each element on its own line. After the last element, output three dashes (---) on their own line to create the page break before the body
+- If the text has NO title page, add one at the very beginning:
+  **Paper Title Here**
+  Author Name
+  Institution Name
+  Course Code and Name
+  Instructor Name
+  Due Date
+  ---
 
 WHAT TO KEEP:
 - All the original ideas, arguments, and content

@@ -74,8 +74,9 @@ function buildApaTable(tableData: TableData, tableNumber: number): (Paragraph | 
     spacing: { line: LINE_SPACING, before: 240, after: 0 },
   }));
 
-  // APA table title: italicized caption (if any) or generic
-  const titleText = tableData.captionText ?? `Table ${tableNumber} Data`;
+  // APA table title: italicized caption — strip any "Table N -" or "Table N:" prefix
+  const rawCaption = tableData.captionText ?? `Table ${tableNumber} Data`;
+  const titleText = rawCaption.replace(/^Table\s+\d*\s*[-:]\s*/i, "").trim() || `Table ${tableNumber} Data`;
   elements.push(new Paragraph({
     children: [run(titleText, { italic: true })],
     spacing: { line: LINE_SPACING, before: 0, after: 120 },
@@ -207,6 +208,20 @@ function classifyHeading(text: string): "l1" | "l2" | null {
   return "l2";
 }
 
+// ─── Title page renderer: everything centered, only **title** bold ─────────────
+
+function buildTitlePage(text: string): Paragraph[] {
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  return lines.map((line) => {
+    const boldText = stripMarkdownBold(line);
+    return new Paragraph({
+      children: boldText ? [run(boldText, { bold: true })] : [run(decodeEntities(line))],
+      alignment: AlignmentType.CENTER,
+      spacing: { line: LINE_SPACING, before: 0, after: 0 },
+    });
+  });
+}
+
 // ─── Build docx children from processed text + original table data ────────────
 
 function buildChildren(
@@ -217,15 +232,27 @@ function buildChildren(
   const children: (Paragraph | Table)[] = [];
   let inReferences = false;
 
+  // For APA mode: split at first --- to isolate title page from body
+  let bodyText = processedText;
+  if (isApa) {
+    const pageBreakMatch = processedText.match(/\n\s*-{3,}\s*\n/);
+    if (pageBreakMatch && pageBreakMatch.index !== undefined) {
+      const titleText = processedText.slice(0, pageBreakMatch.index);
+      bodyText = processedText.slice(pageBreakMatch.index + pageBreakMatch[0].length);
+      buildTitlePage(titleText).forEach((p) => children.push(p));
+      children.push(new Paragraph({ pageBreakBefore: true, text: "" }));
+    }
+  }
+
   // Split processed text on [TABLE_N] placeholders
-  const segments = processedText.split(/\[TABLE_(\d+)\]/i);
+  const segments = bodyText.split(/\[TABLE_(\d+)\]/i);
 
   for (let i = 0; i < segments.length; i++) {
     if (i % 2 === 0) {
       // Prose segment
       const lines = segments[i].split("\n").map((l) => l.trim()).filter(Boolean);
       for (const line of lines) {
-        // 0. Markdown horizontal rule → page break
+        // 0. Any remaining --- in body → page break (e.g. before appendix)
         if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) {
           children.push(new Paragraph({ pageBreakBefore: true, text: "" }));
           continue;
