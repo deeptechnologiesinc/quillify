@@ -398,7 +398,7 @@ export default function Home() {
               )}
               <div className="ml-auto">
                 <button onClick={handleSubmit} disabled={isLoading || inputText.trim().length < 20}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 cursor-pointer">
+                  className={`btn-shine flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer shadow-md shadow-indigo-200/60 ${inputText.trim().length >= 20 && phase === "idle" ? "animate-pulse-glow" : ""}`}>
                   {phase === "analyzing" ? (
                     <><div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />Analysing…</>
                   ) : (
