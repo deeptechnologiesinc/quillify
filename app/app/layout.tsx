@@ -22,7 +22,7 @@ function AppNav() {
 
   return (
     <nav className="sticky top-0 z-50 bg-white border-b border-indigo-50 px-4 sm:px-6 h-14 flex items-center justify-between">
-      <Link href="/"><QuillifyLogo size={28} /></Link>
+      <Link href="/"><QuillifyLogo size={28} showByline /></Link>
       <div className="flex items-center gap-3">
         {usage && pct !== null && (
           <div className="hidden sm:flex items-center gap-2">

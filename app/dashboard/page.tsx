@@ -60,7 +60,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Nav */}
       <nav className="bg-white border-b border-indigo-50 px-4 sm:px-6 h-16 flex items-center justify-between">
-        <Link href="/"><QuillifyLogo size={30} /></Link>
+        <Link href="/"><QuillifyLogo size={30} showByline /></Link>
         <div className="flex items-center gap-4">
           <Link href="/app" className="text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl cursor-pointer transition-colors">
             Open Editor

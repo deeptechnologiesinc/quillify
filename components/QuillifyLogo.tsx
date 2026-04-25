@@ -3,10 +3,11 @@
 interface QuillifyLogoProps {
   size?: number;
   showText?: boolean;
+  showByline?: boolean;
   className?: string;
 }
 
-export function QuillifyLogo({ size = 36, showText = true, className = "" }: QuillifyLogoProps) {
+export function QuillifyLogo({ size = 36, showText = true, showByline = false, className = "" }: QuillifyLogoProps) {
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
       <div
@@ -24,12 +25,19 @@ export function QuillifyLogo({ size = 36, showText = true, className = "" }: Qui
         </svg>
       </div>
       {showText && (
-        <span
-          style={{ fontFamily: "'EB Garamond', Georgia, serif", fontSize: size * 0.72, lineHeight: 1 }}
-          className="font-semibold text-indigo-900 tracking-tight"
-        >
-          Quillify
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            style={{ fontFamily: "'EB Garamond', Georgia, serif", fontSize: size * 0.72, lineHeight: 1 }}
+            className="font-semibold text-indigo-900 tracking-tight"
+          >
+            Quillify
+          </span>
+          {showByline && (
+            <span className="text-xs font-medium text-gray-400 border border-gray-200 rounded-full px-2 py-0.5 leading-none">
+              by Deep Technologies Inc.
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

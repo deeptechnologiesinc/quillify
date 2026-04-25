@@ -15,7 +15,7 @@ function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-indigo-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <QuillifyLogo size={32} />
+        <QuillifyLogo size={32} showByline />
         <div className="hidden md:flex items-center gap-8">
           <Link href="#features" className="text-sm text-gray-500 hover:text-indigo-700 transition-colors cursor-pointer">Features</Link>
           <Link href="#how-it-works" className="text-sm text-gray-500 hover:text-indigo-700 transition-colors cursor-pointer">How it works</Link>
