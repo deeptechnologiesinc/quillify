@@ -41,6 +41,17 @@ REFERENCE LIST (if a reference section exists):
 - Use "https://doi.org/" not "doi:" or "DOI:"
 - For 21+ authors: list first 19, then ..., then last author
 
+TITLE PAGE:
+- If the text already has a title page (paper title, author name, institution, course, instructor, date), keep it — reformat it to APA 7 student paper style (centered, each element on its own line)
+- If the text has NO title page, add one at the very beginning in this format (each on its own centered line):
+  [Paper Title in Bold]
+  [Author Name]
+  [Institution Name]
+  [Course Code and Name]
+  [Instructor Name]
+  [Due Date]
+  Then start the body of the paper on the next page (add a blank line to indicate page break)
+
 WHAT TO KEEP:
 - All the original ideas, arguments, and content
 - The structure and paragraph order
