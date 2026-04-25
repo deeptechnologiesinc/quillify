@@ -143,6 +143,12 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body,
       });
+      if (res.status === 402) {
+        const data = await res.json();
+        setError(`You've used all ${data.limit?.toLocaleString()} words on the ${data.plan} plan this month. Upgrade to continue.`);
+        setPhase("analyzed");
+        return;
+      }
       if (!res.ok) throw new Error(`${mode === "apa" ? "APA formatting" : "Humanization"} failed`);
       const reader = res.body?.getReader();
       if (!reader) throw new Error("No stream");
@@ -158,6 +164,14 @@ export default function Home() {
         }
       }
       setPhase("done");
+      // Save document to history (fire-and-forget)
+      const original = inputText.trim();
+      const title = original.split(/\s+/).slice(0, 8).join(" ");
+      fetch("/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ original, humanized: accumulated, title }),
+      }).catch(() => {});
     } catch (e) {
       setError(e instanceof Error ? e.message : "Processing failed");
       setPhase("analyzed");

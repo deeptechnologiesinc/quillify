@@ -1,5 +1,7 @@
+import { auth } from "@clerk/nextjs/server";
 import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { checkAndDeductWords } from "@/lib/usage";
 
 const client = new Anthropic();
 
@@ -62,9 +64,21 @@ Output ONLY the corrected text. No preamble, no list of changes, no explanation.
 
 export async function POST(req: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) return new Response("Unauthorized", { status: 401 });
+
     const { text } = await req.json();
     if (!text || typeof text !== "string" || text.trim().length < 10) {
       return new Response("Text required", { status: 400 });
+    }
+
+    const wordCount = text.trim().split(/\s+/).length;
+    const { allowed, used, limit, plan } = await checkAndDeductWords(userId, wordCount);
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: "Word limit reached", used, limit, plan }),
+        { status: 402, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     const stream = await client.messages.create({

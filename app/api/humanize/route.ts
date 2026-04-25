@@ -1,5 +1,7 @@
+import { auth } from "@clerk/nextjs/server";
 import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { checkAndDeductWords } from "@/lib/usage";
 
 const client = new Anthropic();
 
@@ -73,9 +75,21 @@ async function streamText(text: string, systemPrompt: string, model: string) {
 
 export async function POST(req: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) return new Response("Unauthorized", { status: 401 });
+
     const { text, mode = "balanced" }: { text: string; mode?: "quick" | "balanced" | "deep" } = await req.json();
     if (!text || typeof text !== "string" || text.trim().length < 10) {
       return new Response("Text required", { status: 400 });
+    }
+
+    const wordCount = text.trim().split(/\s+/).length;
+    const { allowed, used, limit, plan } = await checkAndDeductWords(userId, wordCount);
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: "Word limit reached", used, limit, plan }),
+        { status: 402, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     if (mode === "quick") {
