@@ -105,6 +105,7 @@ function ReferralWidget() {
 export default function DashboardPage() {
   const [data, setData] = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/usage")
@@ -112,6 +113,23 @@ export default function DashboardPage() {
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
+
+  const handleManageSubscription = async () => {
+    if (!data || data.plan === "free") {
+      window.location.href = "/pricing";
+      return;
+    }
+    setPortalLoading(true);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const { url } = await res.json();
+      if (url) window.location.href = url;
+    } catch {
+      window.location.href = "/pricing";
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -148,13 +166,19 @@ export default function DashboardPage() {
                 </div>
                 <ArrowRight className="w-5 h-5 text-indigo-200 group-hover:translate-x-1 transition-transform" />
               </Link>
-              <Link href="/pricing" className="group bg-white border border-indigo-100 rounded-2xl p-5 flex items-center justify-between hover:border-indigo-300 transition-colors cursor-pointer">
+              <button onClick={handleManageSubscription} disabled={portalLoading}
+                className="group bg-white border border-indigo-100 rounded-2xl p-5 flex items-center justify-between hover:border-indigo-300 transition-colors cursor-pointer w-full text-left disabled:opacity-60">
                 <div>
                   <p className="text-sm font-bold text-indigo-950">Manage subscription</p>
-                  <p className="text-xs text-gray-400 mt-0.5">View plans, billing, upgrade</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {data?.plan !== "free" ? "Billing, invoices, cancel" : "View plans, billing, upgrade"}
+                  </p>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 transition-colors" />
-              </Link>
+                {portalLoading
+                  ? <div className="w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+                  : <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 transition-colors" />
+                }
+              </button>
             </div>
 
             {/* Document history */}
