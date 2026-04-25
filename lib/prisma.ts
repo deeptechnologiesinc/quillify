@@ -1,20 +1,25 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-function createPrismaClient() {
+declare global {
+  // eslint-disable-next-line no-var
+  var prisma: PrismaClient | undefined;
+}
+
+function createPrismaClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL;
-  if (!connectionString || connectionString.includes("replace")) {
-    // Return a no-op proxy during build time when DB is not configured
+  if (!connectionString || connectionString === "" || connectionString.includes("replace")) {
     return new Proxy({} as PrismaClient, {
       get: () => () => Promise.resolve(null),
     });
   }
   const adapter = new PrismaPg({ connectionString });
-  return new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return new PrismaClient({ adapter } as any);
 }
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+export const prisma: PrismaClient = global.prisma ?? createPrismaClient();
 
-export const prisma = globalForPrisma.prisma ?? (createPrismaClient() as PrismaClient);
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== "production") {
+  global.prisma = prisma;
+}
