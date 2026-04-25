@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#F5F3FF"/>
+  <rect x="0" y="0" width="1200" height="630" fill="url(#bg-grad)"/>
+  <defs>
+    <linearGradient id="bg-grad" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EEF2FF"/>
+      <stop offset="100%" stop-color="#F5F3FF"/>
+    </linearGradient>
+  </defs>
+  <!-- Logo -->
+  <rect x="80" y="80" width="80" height="80" rx="20" fill="#6366F1"/>
+  <path d="M144 96C144 96 124 102 114 118C104 134 104 152 104 152C104 152 108 146 114 142C114 142 110 144 108 148C108 148 116 140 120 134C116 136 112 138 112 138C112 138 118 130 126 124C126 124 122 126 118 128C118 128 124 120 136 108Z" fill="white" opacity="0.95" transform="scale(0.9) translate(8,8)"/>
+  <!-- Title -->
+  <text x="185" y="132" font-family="Georgia, serif" font-size="52" font-weight="700" fill="#1E1B4B">Quillify</text>
+  <!-- Tagline -->
+  <text x="80" y="240" font-family="Georgia, serif" font-size="56" font-weight="600" fill="#1E1B4B">Write Human.</text>
+  <text x="80" y="310" font-family="Georgia, serif" font-size="56" font-weight="600" fill="#6366F1">Sound Real.</text>
+  <text x="80" y="390" font-family="'Inter', Arial, sans-serif" font-size="28" fill="#6B7280">Paste your text. Get naturally human academic writing.</text>
+  <!-- Right side decoration -->
+  <rect x="780" y="100" width="340" height="430" rx="16" fill="white" opacity="0.7"/>
+  <rect x="810" y="130" width="280" height="12" rx="6" fill="#E0E7FF"/>
+  <rect x="810" y="158" width="240" height="10" rx="5" fill="#E0E7FF"/>
+  <rect x="810" y="182" width="260" height="10" rx="5" fill="#E0E7FF"/>
+  <rect x="810" y="218" width="280" height="40" rx="8" fill="#6366F1"/>
+  <text x="910" y="244" font-family="Arial" font-size="16" fill="white" text-anchor="middle">Humanize</text>
+  <rect x="810" y="278" width="280" height="12" rx="6" fill="#C7D2FE"/>
+  <rect x="810" y="302" width="200" height="10" rx="5" fill="#C7D2FE"/>
+  <rect x="810" y="322" width="240" height="10" rx="5" fill="#C7D2FE"/>
+  <!-- Score badge -->
+  <circle cx="1070" cy="490" r="50" fill="#10B981"/>
+  <text x="1070" y="484" font-family="Arial" font-size="18" font-weight="700" fill="white" text-anchor="middle">98%</text>
+  <text x="1070" y="504" font-family="Arial" font-size="11" fill="white" text-anchor="middle">Human</text>
+</svg>

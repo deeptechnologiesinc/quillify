@@ -1,0 +1,630 @@
+"use client";
+
+import { useState, useRef, useCallback } from "react";
+import {
+  Feather,
+  Sparkles,
+  Copy,
+  Download,
+  RotateCcw,
+  ChevronRight,
+  Check,
+  AlertCircle,
+  BookOpen,
+  Zap,
+  Shield,
+  FileText,
+} from "lucide-react";
+import { Library } from "lucide-react";
+import { QuillifyLogo } from "@/components/QuillifyLogo";
+import { AIScoreGauge } from "@/components/AIScoreGauge";
+import { FileUpload } from "@/components/FileUpload";
+import { DocumentPreview } from "@/components/DocumentPreview";
+import { ReferencesPanel } from "@/components/ReferencesPanel";
+import type { Paper } from "@/app/api/references/route";
+
+type Tab = "paste" | "upload";
+type Phase = "idle" | "analyzing" | "analyzed" | "processing" | "done";
+type OutputMode = "humanize" | "apa";
+
+interface AnalysisResult {
+  aiScore: number;
+  issues: string[];
+}
+
+const ISSUE_COLORS: Record<string, string> = {
+  "uniform sentence": "bg-red-50 text-red-700 border-red-200",
+  "formal vocab": "bg-orange-50 text-orange-700 border-orange-200",
+  "passive voice": "bg-yellow-50 text-yellow-700 border-yellow-200",
+  "repetitive": "bg-pink-50 text-pink-700 border-pink-200",
+  "em dash": "bg-orange-50 text-orange-700 border-orange-200",
+};
+
+function getIssueColor(issue: string) {
+  const lower = issue.toLowerCase();
+  for (const key of Object.keys(ISSUE_COLORS)) {
+    if (lower.includes(key)) return ISSUE_COLORS[key];
+  }
+  return "bg-indigo-50 text-indigo-700 border-indigo-200";
+}
+
+export default function Home() {
+  const [tab, setTab] = useState<Tab>("paste");
+  const [inputText, setInputText] = useState("");
+  const [inputHtml, setInputHtml] = useState<string | null>(null);
+  const [outputText, setOutputText] = useState("");
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [outputMode, setOutputMode] = useState<OutputMode>("humanize");
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [downloadingDocx, setDownloadingDocx] = useState(false);
+  const [refPapers, setRefPapers] = useState<Paper[]>([]);
+  const [refTopics, setRefTopics] = useState<string[]>([]);
+  const [refLoading, setRefLoading] = useState(false);
+  const [refError, setRefError] = useState("");
+  const [showRefs, setShowRefs] = useState(false);
+  const [citingRefs, setCitingRefs] = useState(false);
+  const [refSufficient, setRefSufficient] = useState<boolean | undefined>(undefined);
+  const [refExistingCount, setRefExistingCount] = useState<number | undefined>(undefined);
+  const [refHasList, setRefHasList] = useState<boolean | undefined>(undefined);
+  const [refGaps, setRefGaps] = useState<string[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const outputRef = useRef<HTMLDivElement>(null);
+
+  const charCount = inputText.length;
+  const wordCount = inputText.trim() ? inputText.trim().split(/\s+/).length : 0;
+
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+    // Prefer plain text from clipboard to avoid Word HTML artifacts
+    const raw = e.clipboardData.getData("text/plain");
+    const clean = raw
+      .replace(/\r\n/g, "\n")          // Windows line endings → Unix
+      .replace(/\r/g, "\n")             // old Mac line endings → Unix
+      .replace(//g, "\n")         // Word soft-return (vertical tab) → newline
+      .replace(/ /g, " ")          // non-breaking space → regular space
+      .replace(/[​‌‍﻿]/g, "") // zero-width chars
+      .replace(/\n{3,}/g, "\n\n")       // collapse 3+ blank lines to 2
+      .trim();
+    setInputText(clean);
+    setError("");
+  }, []);
+
+  const analyze = useCallback(async (text: string) => {
+    setError("");
+    setPhase("analyzing");
+    setAnalysis(null);
+    // Don't clear outputText here — re-analysis must preserve the current working text
+    // so that subsequent operations (humanize, APA) chain onto it correctly.
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Analysis failed");
+      setAnalysis(data);
+      setPhase("analyzed");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Analysis failed");
+      setPhase("idle");
+    }
+  }, []);
+
+  const stream = useCallback(async (endpoint: string, mode: OutputMode) => {
+    // Use the most recent processed text — fall back to original input on first run.
+    // This is what makes Humanize → Re-analyse → APA → Download work as a chain.
+    const text = outputText.trim() || inputText.trim();
+    if (!text) return;
+    setError("");
+    setOutputMode(mode);
+    setPhase("processing");
+    setOutputText(""); // clear now that we've captured the source text above
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error(`${mode === "apa" ? "APA formatting" : "Humanization"} failed`);
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No stream");
+      const decoder = new TextDecoder();
+      let accumulated = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+        setOutputText(accumulated);
+        if (outputRef.current) {
+          outputRef.current.scrollTop = outputRef.current.scrollHeight;
+        }
+      }
+      setPhase("done");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Processing failed");
+      setPhase("analyzed");
+    }
+  }, [inputText, outputText]);
+
+  const handleHumanize = useCallback(() => stream("/api/humanize", "humanize"), [stream]);
+  const handleApa = useCallback(() => stream("/api/apa", "apa"), [stream]);
+
+  const handleSubmit = () => {
+    const text = inputText.trim();
+    if (text.length < 20) { setError("Please enter at least 20 characters."); return; }
+    setOutputText(""); // fresh analysis from scratch — discard any previous output
+    analyze(text);
+  };
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(outputText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadTxt = () => {
+    const blob = new Blob([outputText], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = outputMode === "apa" ? "apa7-compliant.txt" : "quillify-humanized.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadDocx = async () => {
+    setDownloadingDocx(true);
+    try {
+      const res = await fetch("/api/download-docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: outputText, html: inputHtml, mode: outputMode }),
+      });
+      if (!res.ok) throw new Error("Failed to generate Word file");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = outputMode === "apa" ? "apa7-compliant.docx" : "quillify-humanized.docx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Word download failed");
+    } finally {
+      setDownloadingDocx(false);
+    }
+  };
+
+  const handleReanalyse = useCallback(() => {
+    if (outputText.trim().length >= 20) analyze(outputText);
+  }, [outputText, analyze]);
+
+  const handleFindRefs = useCallback(async () => {
+    const text = (outputText.trim() || inputText.trim());
+    if (text.length < 50) return;
+    setRefError("");
+    setRefPapers([]);
+    setRefTopics([]);
+    setShowRefs(true);
+    setRefLoading(true);
+    try {
+      const res = await fetch("/api/references", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to find references");
+      setRefPapers(data.papers || []);
+      setRefTopics(data.topics || []);
+      setRefSufficient(data.sufficient ?? undefined);
+      setRefExistingCount(data.existingCitationCount ?? undefined);
+      setRefHasList(data.hasReferenceList ?? undefined);
+      setRefGaps(data.gaps || []);
+    } catch (e) {
+      setRefError(e instanceof Error ? e.message : "Failed to find references");
+      setShowRefs(false);
+    } finally {
+      setRefLoading(false);
+    }
+  }, [inputText, outputText]);
+
+  const handleInsertCitations = useCallback(async (selectedPapers: Paper[]) => {
+    const text = outputText.trim() || inputText.trim();
+    if (!text || selectedPapers.length === 0) return;
+    setCitingRefs(true);
+    setError("");
+    setOutputMode("humanize");
+    setPhase("processing");
+    setOutputText("");
+    try {
+      const res = await fetch("/api/cite-references", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, papers: selectedPapers }),
+      });
+      if (!res.ok) throw new Error("Citation insertion failed");
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No stream");
+      const decoder = new TextDecoder();
+      let accumulated = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+        setOutputText(accumulated);
+        if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight;
+      }
+      setPhase("done");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Citation insertion failed");
+      setPhase("analyzed");
+    } finally {
+      setCitingRefs(false);
+    }
+  }, [inputText, outputText, refPapers]);
+
+  const handleSearchMore = useCallback(async (query: string) => {
+    try {
+      const res = await fetch("/api/references", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customQuery: query }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.papers?.length) return;
+      setRefPapers((prev) => {
+        const existingIds = new Set(prev.map((p) => p.paperId));
+        const existingDois = new Set(prev.map((p) => p.doi?.toLowerCase()).filter(Boolean));
+        const fresh = (data.papers as Paper[]).filter(
+          (p) => !existingIds.has(p.paperId) && !(p.doi && existingDois.has(p.doi.toLowerCase()))
+        );
+        return [...prev, ...fresh];
+      });
+    } catch {
+      // silently ignore — user sees no new papers added
+    }
+  }, []);
+
+  const handleReset = () => {
+    setPhase("idle"); setAnalysis(null);
+    setOutputText(""); setError(""); setInputText(""); setInputHtml(null);
+    setRefPapers([]); setRefTopics([]); setShowRefs(false); setRefError(""); setCitingRefs(false);
+    setRefSufficient(undefined); setRefExistingCount(undefined); setRefHasList(undefined); setRefGaps([]);
+  };
+
+  const isLoading = phase === "analyzing" || phase === "processing";
+  const showOutput = phase === "processing" || phase === "done";
+
+  const modeLabel = outputMode === "apa" ? "APA 7 Compliant" : citingRefs || (phase === "done" && outputText.includes("References\n")) ? "Cited" : "Humanized";
+  const modeBorderColor = outputMode === "apa" ? "border-violet-200" : "border-emerald-200";
+  const modeHeaderBg = outputMode === "apa" ? "bg-violet-50/50 border-violet-100" : "bg-emerald-50/50 border-emerald-100";
+  const modeTextColor = outputMode === "apa" ? "text-violet-600" : "text-emerald-600";
+
+  return (
+    <div className="min-h-screen" style={{ background: "#F5F3FF" }}>
+      {/* Navbar */}
+      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-indigo-100">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <QuillifyLogo size={34} showText />
+          <div className="hidden sm:flex items-center gap-6 text-sm font-medium text-gray-500">
+            <span className="flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-indigo-400" /> Instant Analysis
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-indigo-400" /> Keeps Your Ideas
+            </span>
+            <span className="flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5 text-indigo-400" /> APA 7 Ready
+            </span>
+          </div>
+          <span className="text-xs bg-indigo-100 text-indigo-700 font-semibold px-3 py-1 rounded-full">
+            Free to use
+          </span>
+        </div>
+      </nav>
+
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+        {/* Hero */}
+        <div className="text-center mb-10 animate-fade-in">
+          <h1 className="text-4xl sm:text-5xl font-bold text-indigo-950 mb-3 leading-tight"
+            style={{ fontFamily: "'EB Garamond', Georgia, serif" }}>
+            Write Human.{" "}<span style={{ color: "#6366F1" }}>Sound Real.</span>
+          </h1>
+          <p className="text-gray-500 text-lg max-w-xl mx-auto leading-relaxed">
+            Paste your text or upload a file. Humanize it, make it APA 7 compliant, or both — then download as Word.
+          </p>
+        </div>
+
+        {/* Input Card */}
+        <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm overflow-hidden mb-6">
+          <div className="flex border-b border-indigo-100">
+            {(["paste", "upload"] as Tab[]).map((t) => (
+              <button key={t} onClick={() => { setTab(t); setError(""); }} disabled={isLoading}
+                className={`flex-1 py-3.5 text-sm font-semibold transition-colors duration-150 cursor-pointer
+                  ${tab === t ? "text-indigo-700 border-b-2 border-indigo-500 bg-indigo-50/60" : "text-gray-400 hover:text-indigo-500"}`}>
+                {t === "paste" ? "Paste Text" : "Upload File"}
+              </button>
+            ))}
+          </div>
+
+          <div className="p-5 sm:p-6">
+            {tab === "paste" ? (
+              <div className="relative">
+                <textarea ref={textareaRef} value={inputText}
+                  onChange={(e) => { setInputText(e.target.value); setInputHtml(null); setError(""); }}
+                  onPaste={handlePaste}
+                  disabled={isLoading}
+                  placeholder="Paste your essay, report, or any academic writing here…"
+                  className="w-full min-h-[220px] resize-y rounded-xl border border-indigo-100 bg-indigo-50/30 p-4 text-[15px] leading-relaxed text-indigo-950 placeholder-gray-300 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 disabled:opacity-60"
+                  style={{ fontFamily: "Inter, sans-serif" }} />
+                <div className="absolute bottom-3 right-3 text-xs text-gray-300 select-none pointer-events-none">
+                  {wordCount} words · {charCount} chars
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <FileUpload
+                  onFileProcessed={(text, html) => {
+                    setInputText(text);
+                    setInputHtml(html);
+                    if (!html) setTab("paste");
+                  }}
+                  disabled={isLoading}
+                />
+                {inputHtml && (
+                  <DocumentPreview html={inputHtml} textWithPlaceholders={inputText} />
+                )}
+              </div>
+            )}
+
+            {error && (
+              <div className="mt-3 flex items-center gap-2 text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span className="text-sm">{error}</span>
+              </div>
+            )}
+
+            <div className="mt-4 flex items-center justify-between gap-3">
+              {phase !== "idle" && (
+                <button onClick={handleReset}
+                  className="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors cursor-pointer">
+                  <RotateCcw className="w-3.5 h-3.5" /> Reset
+                </button>
+              )}
+              <div className="ml-auto">
+                <button onClick={handleSubmit} disabled={isLoading || inputText.trim().length < 20}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 cursor-pointer">
+                  {phase === "analyzing" ? (
+                    <><div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />Analysing…</>
+                  ) : (
+                    <><Sparkles className="w-4 h-4" />Analyse Text<ChevronRight className="w-3.5 h-3.5 opacity-60" /></>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Analysis Panel */}
+        {(phase === "analyzed" || phase === "processing" || phase === "done") && analysis && (
+          <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm p-5 sm:p-6 mb-6 animate-fade-in">
+            <h2 className="text-xl font-bold text-indigo-950 mb-5"
+              style={{ fontFamily: "'EB Garamond', Georgia, serif" }}>
+              Analysis Results
+            </h2>
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+              <div className="flex-shrink-0">
+                <AIScoreGauge score={analysis.aiScore} animated />
+              </div>
+              <div className="flex-1 w-full">
+                <p className="text-sm font-semibold text-gray-600 mb-3">Patterns detected:</p>
+                {analysis.issues.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    {analysis.issues.map((issue, i) => (
+                      <span key={i} className={`text-xs font-medium px-3 py-1.5 rounded-full border ${getIssueColor(issue)}`}>
+                        {issue}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-green-600 mb-5">No strong AI patterns found. Your writing already sounds natural!</p>
+                )}
+
+                {/* Two action buttons */}
+                <div className="flex flex-wrap gap-3">
+                  <button onClick={handleHumanize}
+                    disabled={phase === "processing"}
+                    className="flex items-center gap-2.5 px-6 py-2.5 rounded-xl font-semibold text-sm bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 cursor-pointer shadow-sm">
+                    {phase === "processing" && outputMode === "humanize" ? (
+                      <><div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />Humanizing…</>
+                    ) : phase === "done" && outputMode === "humanize" ? (
+                      <><Check className="w-4 h-4" />Humanized</>
+                    ) : (
+                      <><Feather className="w-4 h-4" />Humanize My Writing</>
+                    )}
+                  </button>
+
+                  <button onClick={handleApa}
+                    disabled={phase === "processing"}
+                    className="flex items-center gap-2.5 px-6 py-2.5 rounded-xl font-semibold text-sm bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 cursor-pointer shadow-sm">
+                    {phase === "processing" && outputMode === "apa" ? (
+                      <><div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />Formatting…</>
+                    ) : phase === "done" && outputMode === "apa" ? (
+                      <><Check className="w-4 h-4" />APA Done</>
+                    ) : (
+                      <><BookOpen className="w-4 h-4" />Make APA 7 Compliant</>
+                    )}
+                  </button>
+
+                  <button onClick={handleFindRefs}
+                    disabled={refLoading || phase === "processing"}
+                    className="flex items-center gap-2.5 px-6 py-2.5 rounded-xl font-semibold text-sm bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 cursor-pointer shadow-sm">
+                    {refLoading ? (
+                      <><div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />Checking Citations…</>
+                    ) : showRefs && refSufficient ? (
+                      <><Check className="w-4 h-4" />Citations Sufficient</>
+                    ) : showRefs && refPapers.length > 0 ? (
+                      <><Check className="w-4 h-4" />{refPapers.length} References Found</>
+                    ) : (
+                      <><Library className="w-4 h-4" />Check &amp; Find References</>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Output Section */}
+        {showOutput && (
+          <div className="animate-fade-in">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div>
+                <h2 className="text-xl font-bold text-indigo-950"
+                  style={{ fontFamily: "'EB Garamond', Georgia, serif" }}>
+                  {modeLabel} Version
+                </h2>
+                {outputMode === "apa" && phase === "done" && (
+                  <p className="text-xs text-violet-500 mt-0.5">Times New Roman 12pt · Double spaced · 1&quot; margins in Word download</p>
+                )}
+              </div>
+              {phase === "done" && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button onClick={handleCopy}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer border border-indigo-100">
+                    {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copied ? "Copied!" : "Copy Text"}
+                  </button>
+                  <button onClick={handleDownloadTxt}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer border border-indigo-100">
+                    <Download className="w-3.5 h-3.5" />
+                    .txt
+                  </button>
+                  <button onClick={handleDownloadDocx} disabled={downloadingDocx}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors cursor-pointer disabled:opacity-60">
+                    {downloadingDocx
+                      ? <><div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />Generating…</>
+                      : <><FileText className="w-3.5 h-3.5" />Download Word (.docx)</>
+                    }
+                  </button>
+                  <button onClick={outputMode === "apa" ? handleApa : handleHumanize}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors cursor-pointer border border-amber-200">
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Re-run
+                  </button>
+                  <button onClick={handleReanalyse}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors cursor-pointer">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Re-analyse Output
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Original */}
+              <div className="bg-white rounded-2xl border border-indigo-100 overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-indigo-50 bg-gray-50/50">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Original</span>
+                </div>
+                {inputHtml ? (
+                  <div className="max-h-[400px] overflow-y-auto opacity-60">
+                    <DocumentPreview html={inputHtml} textWithPlaceholders={inputText} />
+                  </div>
+                ) : (
+                  <div className="p-5 text-[14px] leading-relaxed text-gray-400 whitespace-pre-wrap max-h-[400px] overflow-y-auto"
+                    style={{ fontFamily: "Inter, sans-serif" }}>
+                    {inputText}
+                  </div>
+                )}
+              </div>
+
+              {/* Output */}
+              <div className={`bg-white rounded-2xl border overflow-hidden shadow-sm ${modeBorderColor}`}>
+                <div className={`px-4 py-2.5 border-b ${modeHeaderBg}`}>
+                  <span className={`text-xs font-semibold uppercase tracking-wider ${modeTextColor}`}>
+                    {modeLabel}
+                    {phase === "processing" && (
+                      <span className="ml-2 inline-flex items-center gap-1 opacity-60">
+                        <span className={`w-2 h-2 rounded-full animate-pulse inline-block ${outputMode === "apa" ? "bg-violet-500" : "bg-emerald-400"}`} />
+                        writing…
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div ref={outputRef}
+                  className="p-5 text-[14px] leading-relaxed text-indigo-950 whitespace-pre-wrap max-h-[400px] overflow-y-auto"
+                  style={{ fontFamily: "Inter, sans-serif" }}>
+                  {outputText || (
+                    <div className="space-y-3">
+                      {[...Array(6)].map((_, i) => (
+                        <div key={i} className={`h-4 rounded shimmer ${i % 3 === 0 ? "w-full" : i % 2 === 0 ? "w-4/5" : "w-3/5"}`} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* References error */}
+        {refError && (
+          <div className="mt-4 flex items-center gap-2 text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5 animate-fade-in">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span className="text-sm">{refError}</span>
+          </div>
+        )}
+
+        {/* References Panel */}
+        {(showRefs || refLoading) && (
+          <div className="mt-6">
+            <ReferencesPanel
+            papers={refPapers}
+            topics={refTopics}
+            loading={refLoading}
+            sufficient={refSufficient}
+            existingCitationCount={refExistingCount}
+            hasReferenceList={refHasList}
+            gaps={refGaps}
+            onInsertCitations={refPapers.length > 0 ? (selected) => handleInsertCitations(selected) : undefined}
+            inserting={citingRefs}
+            onSearchMore={handleSearchMore}
+          />
+          </div>
+        )}
+
+        {/* Feature strips */}
+        {phase === "idle" && (
+          <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in">
+            {[
+              { icon: <Sparkles className="w-5 h-5 text-indigo-500" />, title: "AI Pattern Detection", desc: "Spots uniform sentence length, AI vocabulary, em dashes, passive voice, and more." },
+              { icon: <Feather className="w-5 h-5 text-indigo-500" />, title: "Natural Rewriting", desc: "Uses everyday words, varied rhythm, and natural student voice — no heavy jargon." },
+              { icon: <BookOpen className="w-5 h-5 text-indigo-500" />, title: "APA 7 Compliant Word", desc: "Fix citations, remove contractions, format references — download as a proper .docx file." },
+            ].map((f, i) => (
+              <div key={i} className="bg-white rounded-xl border border-indigo-100 p-5 flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">{f.icon}</div>
+                <div>
+                  <p className="text-sm font-semibold text-indigo-950">{f.title}</p>
+                  <p className="text-xs text-gray-400 mt-1 leading-relaxed">{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+
+      <footer className="mt-16 border-t border-indigo-100 bg-white py-6">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <QuillifyLogo size={26} showText />
+          <p className="text-xs text-gray-400">Your text is never stored. Processed in real-time and discarded immediately.</p>
+          <p className="text-xs text-gray-400">© {new Date().getFullYear()} Quillify</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
