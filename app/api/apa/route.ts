@@ -28,9 +28,9 @@ IN-TEXT CITATIONS:
 - Multiple citations in one bracket: alphabetical order, separated by semicolons — (Jones, 2019; Smith, 2020)
 
 HEADINGS (if present):
-- Level 1: Bold, Centered, Title Case — on its own line
-- Level 2: Bold, Left-aligned, Title Case — on its own line
-- Level 3: Bold, Italic, Left-aligned, Title Case — on its own line
+- Level 1 (major sections: Introduction, Methodology, Results, Discussion, Conclusion, Limitations, References, and any other top-level section): output as **Heading Text** (bold markdown, on its own line)
+- Level 2 (subsections within a section, e.g. "Average Score per Model", "Question-Level Comparison"): output as **Heading Text** (same bold markdown — the docx builder distinguishes L1 vs L2 by name)
+- Level 3: Bold, Italic — output as ***Heading Text***
 - Do not number headings in student papers
 
 REFERENCE LIST (if a reference section exists):
@@ -44,7 +44,7 @@ REFERENCE LIST (if a reference section exists):
 - For 21+ authors: list first 19, then ..., then last author
 
 TITLE PAGE:
-- If the text already has a title page (paper title, author name, institution, course, instructor, date), keep it — reformat it to APA 7 student paper style (centered, each element on its own line)
+- If the text already has a title page (paper title, author name, institution, course, instructor, date), keep it — reformat it to APA 7 student paper style (centered, each element on its own line). After the last title page element, output three dashes (---) on their own line to create the page break before the body
 - If the text has NO title page, add one at the very beginning in this format (each on its own centered line):
   [Paper Title in Bold]
   [Author Name]
@@ -52,7 +52,7 @@ TITLE PAGE:
   [Course Code and Name]
   [Instructor Name]
   [Due Date]
-  Then start the body of the paper on the next page (add a blank line to indicate page break)
+  Then output three dashes (---) on their own line to indicate the page break before the body begins
 
 WHAT TO KEEP:
 - All the original ideas, arguments, and content

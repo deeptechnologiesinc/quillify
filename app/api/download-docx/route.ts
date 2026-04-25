@@ -173,6 +173,40 @@ function stripMarkdownBold(line: string): string | null {
   return m ? m[1].trim() : null;
 }
 
+// APA 7 Level 1 heading: bold, centered
+function apaHeading1(text: string): Paragraph {
+  return new Paragraph({
+    children: [run(text, { bold: true })],
+    alignment: AlignmentType.CENTER,
+    spacing: { line: LINE_SPACING, before: 240, after: 0 },
+  });
+}
+
+// APA 7 Level 2 heading: bold, left-aligned (subsections)
+function apaHeading2(text: string): Paragraph {
+  return new Paragraph({
+    children: [run(text, { bold: true })],
+    alignment: AlignmentType.LEFT,
+    spacing: { line: LINE_SPACING, before: 240, after: 0 },
+  });
+}
+
+// Known APA Level 1 section names (single-word or standard multi-word)
+const APA_L1_HEADINGS = new Set([
+  "abstract", "introduction", "methodology", "method", "methods",
+  "results", "discussion", "conclusion", "conclusions",
+  "limitations", "references", "appendix", "acknowledgements", "acknowledgments",
+]);
+
+function classifyHeading(text: string): "l1" | "l2" | null {
+  const lower = text.toLowerCase().trim();
+  if (APA_L1_HEADINGS.has(lower)) return "l1";
+  // Known compound L1 headings
+  if (lower.startsWith("edii") || lower.includes("indigenous data")) return "l1";
+  // L2: subsection headings (typically title-case phrases not in L1 list)
+  return "l2";
+}
+
 // ─── Build docx children from processed text + original table data ────────────
 
 function buildChildren(
@@ -181,6 +215,7 @@ function buildChildren(
   isApa: boolean
 ): (Paragraph | Table)[] {
   const children: (Paragraph | Table)[] = [];
+  let inReferences = false;
 
   // Split processed text on [TABLE_N] placeholders
   const segments = processedText.split(/\[TABLE_(\d+)\]/i);
@@ -190,14 +225,18 @@ function buildChildren(
       // Prose segment
       const lines = segments[i].split("\n").map((l) => l.trim()).filter(Boolean);
       for (const line of lines) {
-        // 1. Full-line markdown bold → APA Level 1 heading (centered, bold)
+        // 0. Markdown horizontal rule → page break
+        if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) {
+          children.push(new Paragraph({ pageBreakBefore: true, text: "" }));
+          continue;
+        }
+
+        // 1. Full-line markdown bold → APA heading (L1 or L2 based on content)
         const headingText = stripMarkdownBold(line);
         if (headingText) {
-          children.push(new Paragraph({
-            children: [run(headingText, { bold: true })],
-            alignment: AlignmentType.CENTER,
-            spacing: { line: LINE_SPACING, before: 240, after: 0 },
-          }));
+          const level = isApa ? classifyHeading(headingText) : "l1";
+          if (headingText.toLowerCase() === "references") inReferences = true;
+          children.push(level === "l2" ? apaHeading2(headingText) : apaHeading1(headingText));
           continue;
         }
 
@@ -209,29 +248,30 @@ function buildChildren(
           && /^[A-Z]/.test(line)
           && line.split(" ").length <= 8;
         if (looksLikeHeading) {
-          children.push(new Paragraph({
-            children: markdownRuns(line),
-            alignment: AlignmentType.CENTER,
-            spacing: { line: LINE_SPACING, before: 240, after: 0 },
-          }));
+          const level = classifyHeading(line);
+          if (line.toLowerCase() === "references") inReferences = true;
+          children.push(level === "l2" ? apaHeading2(line) : apaHeading1(line));
           continue;
         }
 
-        // 3. Markdown bullet point → indented paragraph with bullet dash
+        // 3. Markdown bullet point → indented paragraph with bullet marker
         const bulletMatch = line.match(/^[-•]\s+(.+)$/);
         if (bulletMatch) {
           children.push(new Paragraph({
-            children: markdownRuns(bulletMatch[1]),
+            children: [run("•  "), ...markdownRuns(bulletMatch[1])],
             indent: { left: convertInchesToTwip(0.5) },
             spacing: { line: LINE_SPACING, before: 0, after: 0 },
           }));
           continue;
         }
 
-        // 4. Normal paragraph — parse inline markdown
+        // 4. Normal paragraph — references get hanging indent, body gets first-line indent
+        const indent = inReferences
+          ? { left: convertInchesToTwip(0.5), hanging: convertInchesToTwip(0.5) }
+          : (isApa ? { firstLine: FIRST_LINE_INDENT } : undefined);
         children.push(new Paragraph({
           children: markdownRuns(line),
-          indent: isApa ? { firstLine: FIRST_LINE_INDENT } : undefined,
+          indent,
           alignment: AlignmentType.LEFT,
           spacing: { line: LINE_SPACING, before: 0, after: 0 },
         }));
