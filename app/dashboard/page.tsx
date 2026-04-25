@@ -187,7 +187,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
                       </div>
-                      <Link href="/app" className="flex-shrink-0 text-xs font-semibold text-indigo-500 hover:text-indigo-700 cursor-pointer ml-4">
+                      <Link href={`/app?doc=${doc.id}`} className="flex-shrink-0 text-xs font-semibold text-indigo-500 hover:text-indigo-700 cursor-pointer ml-4">
                         Open
                       </Link>
                     </div>

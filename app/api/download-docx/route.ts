@@ -15,6 +15,7 @@ import {
   WidthType,
   BorderStyle,
   VerticalAlign,
+  PageBreak,
 } from "docx";
 import { parseDocHtml, type TableData } from "@/lib/htmlUtils";
 import { parse as parseHtmlNode } from "node-html-parser";
@@ -168,6 +169,24 @@ function markdownRuns(text: string): TextRun[] {
   return runs.length ? runs : [run("")];
 }
 
+// For reference entries: **bold** → plain text, *italic* stays italic (APA refs must not be bold)
+function markdownRunsForRef(text: string): TextRun[] {
+  const decoded = decodeEntities(text);
+  const runs: TextRun[] = [];
+  const re = /\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(decoded)) !== null) {
+    if (m.index > last) runs.push(run(decoded.slice(last, m.index)));
+    if (m[1]) runs.push(run(m[1], { italic: true })); // bold+italic → italic only
+    else if (m[2]) runs.push(run(m[2]));               // bold → plain text
+    else if (m[3]) runs.push(run(m[3], { italic: true }));
+    last = m.index + m[0].length;
+  }
+  if (last < decoded.length) runs.push(run(decoded.slice(last)));
+  return runs.length ? runs : [run("")];
+}
+
 // Strip leading/trailing ** or *** from a line to get the raw heading text
 function stripMarkdownBold(line: string): string | null {
   const m = line.match(/^\*{2,3}(.+?)\*{2,3}$/);
@@ -258,17 +277,28 @@ function buildChildren(
           continue;
         }
 
-        // 1. Full-line markdown bold → APA heading (L1 or L2 based on content)
-        const headingText = stripMarkdownBold(line);
-        if (headingText) {
-          const level = isApa ? classifyHeading(headingText) : "l1";
-          if (headingText.toLowerCase() === "references") inReferences = true;
-          children.push(level === "l2" ? apaHeading2(headingText) : apaHeading1(headingText));
-          continue;
+        // 1. Full-line markdown bold → APA heading
+        //    Skip heading detection once we're in the References section — reference
+        //    entries often wrap the whole line in **bold** and would be mis-detected.
+        if (!inReferences) {
+          const headingText = stripMarkdownBold(line);
+          if (headingText) {
+            const level = isApa ? classifyHeading(headingText) : "l1";
+            if (headingText.toLowerCase() === "references") {
+              inReferences = true;
+              if (isApa) {
+                // Explicit page break run — more reliable than pageBreakBefore property
+                children.push(new Paragraph({ children: [new PageBreak()] }));
+              }
+            }
+            children.push(level === "l2" ? apaHeading2(headingText) : apaHeading1(headingText));
+            continue;
+          }
         }
 
-        // 2. Plain-text heading heuristic (for non-markdown output)
-        const looksLikeHeading = isApa
+        // 2. Plain-text heading heuristic (for non-markdown output, non-reference lines)
+        const looksLikeHeading = !inReferences
+          && isApa
           && line.length < 80
           && !line.endsWith(".")
           && !line.endsWith(",")
@@ -276,7 +306,12 @@ function buildChildren(
           && line.split(" ").length <= 8;
         if (looksLikeHeading) {
           const level = classifyHeading(line);
-          if (line.toLowerCase() === "references") inReferences = true;
+          if (line.toLowerCase() === "references") {
+            inReferences = true;
+            if (isApa) {
+              children.push(new Paragraph({ children: [new PageBreak()] }));
+            }
+          }
           children.push(level === "l2" ? apaHeading2(line) : apaHeading1(line));
           continue;
         }
@@ -296,8 +331,9 @@ function buildChildren(
         const indent = inReferences
           ? { left: convertInchesToTwip(0.5), hanging: convertInchesToTwip(0.5) }
           : (isApa ? { firstLine: FIRST_LINE_INDENT } : undefined);
+        const textRuns = inReferences ? markdownRunsForRef(line) : markdownRuns(line);
         children.push(new Paragraph({
-          children: markdownRuns(line),
+          children: textRuns,
           indent,
           alignment: AlignmentType.LEFT,
           spacing: { line: LINE_SPACING, before: 0, after: 0 },

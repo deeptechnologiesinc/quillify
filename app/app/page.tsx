@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Feather,
   Sparkles,
@@ -48,7 +49,8 @@ function getIssueColor(issue: string) {
   return "bg-indigo-50 text-indigo-700 border-indigo-200";
 }
 
-export default function Home() {
+function HomeInner() {
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<Tab>("paste");
   const [inputText, setInputText] = useState("");
   const [inputHtml, setInputHtml] = useState<string | null>(null);
@@ -82,6 +84,25 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: ref }),
     }).finally(() => localStorage.removeItem("qfy_ref"));
+  }, []);
+
+  // Load document from history if ?doc=<id> is in the URL
+  useEffect(() => {
+    const docId = searchParams.get("doc");
+    if (!docId) return;
+    fetch(`/api/documents/${docId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((doc: { original: string; humanized: string | null; title: string } | null) => {
+        if (!doc) return;
+        setInputText(doc.original ?? "");
+        if (doc.humanized) {
+          setOutputText(doc.humanized);
+          setPhase("done");
+        }
+        // If no humanized text, leave phase as "idle" so user can re-process
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const charCount = inputText.length;
@@ -678,5 +699,13 @@ export default function Home() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeInner />
+    </Suspense>
   );
 }
