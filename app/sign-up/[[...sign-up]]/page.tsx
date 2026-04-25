@@ -10,7 +10,7 @@ export default function SignUpPage() {
       <Suspense fallback={null}>
         <ReferralTracker />
       </Suspense>
-      <SignUp />
+      <SignUp forceRedirectUrl="/app" />
     </div>
   );
 }
