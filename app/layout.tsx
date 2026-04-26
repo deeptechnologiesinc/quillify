@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -51,7 +52,10 @@ export default function RootLayout({
           <meta name="apple-mobile-web-app-status-bar-style" content="default" />
           <meta name="apple-mobile-web-app-title" content="Quillify" />
         </head>
-        <body>{children}</body>
+        <body>
+          {children}
+          <Analytics />
+        </body>
       </html>
     </ClerkProvider>
   );
